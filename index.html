@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index, follow">
+  <title>14ER — Colorado Summit Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css?v=alpine-terrain-controls-1">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="site.js?v=alpine-terrain-coverage-2" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/"><span>14ER</span><small>Colorado summit tracker</small></a>
+    <nav><a href="#progress">Progress</a><a href="#locations">Map</a><a href="#peaks">All peaks</a><a href="https://gordongouger.com/14ers.html">Portfolio ↗</a></nav>
+  </header>
+  <main>
+    <section class="intro" id="progress">
+      <p class="eyebrow">The long game</p>
+      <h1>Fifty-eight peaks.<br>One growing map.</h1>
+      <p>Colorado's named fourteeners, arranged by height. Each summit fills a piece of the range.</p>
+    </section>
+    <section class="tracker-grid">
+      <div class="poster-pane" id="peakMap"><p class="loading">Building the range…</p></div>
+      <aside class="stats-pane" id="statsPane"></aside>
+    </section>
+    <section class="map-pane" id="locations">
+      <div class="section-head"><div><p class="eyebrow">The ground beneath it</p><h2>Where they are</h2></div><p class="map-key"><span class="key done"></span>summited <span class="key"></span>still to climb</p></div>
+      <div id="peakLocationMap" aria-label="Interactive terrain map of Colorado fourteeners"><p class="loading">Placing the peaks…</p></div>
+    </section>
+    <section class="gallery" aria-label="Fourteener photos">
+      <div class="photo-placeholder">Photo journal<br><span>coming soon</span></div>
+      <div class="photo-placeholder">Above treeline<br><span>coming soon</span></div>
+      <div class="photo-placeholder">Summit day<br><span>coming soon</span></div>
+      <div class="photo-placeholder">The next one<br><span>coming soon</span></div>
+    </section>
+    <section class="list-pane" id="peaks">
+      <div class="section-head"><p class="eyebrow">The list</p><h2>Every summit</h2></div>
+      <div id="peakList"><p class="loading">Loading peaks…</p></div>
+    </section>
+  </main>
+  <footer class="details">53 ranked peaks · 5 named, unranked · source: <a href="https://www.14ers.com/14ers" target="_blank" rel="noopener">14ers.com</a></footer>
+</body>
+</html>
