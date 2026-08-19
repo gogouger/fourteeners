@@ -15,7 +15,9 @@
     'Tenmile-Mosquito':{src:'assets/ranges/tenmile-mosquito.jpg',credit:'DReifGalaxyM31 · CC0',source:'https://commons.wikimedia.org/wiki/File:Ten_Mile_Range_from_Copper_Mountain.JPG'}
   };
   var embed=/[?&]embed=1/.test(location.search);
-  var widgetLab=/[?&]widget=ribbon-lab(?:[&#]|$)/.test(location.search);
+  // The terrain tracker is the finished experience. Keep the legacy poster
+  // available only when explicitly requested for comparison.
+  var widgetLab=!/[?&]widget=poster(?:[&#]|$)/.test(location.search);
   var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,labTerrain,demTerrain,terrainAerialImage,terrainReliefImage,droneOrbitFrame;
   var terrainTreatment='alpine';
   var terrainCamera={yaw:.218,pitch:.52};
