@@ -85,7 +85,7 @@ def main():
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--max-zoom", type=int, default=MAX_ZOOM)
     parser.add_argument("--rebuild-overview", action="store_true")
-    parser.add_argument("--overview-tile-size", type=int, default=2048)
+    parser.add_argument("--overview-tile-size", type=int, default=1024)
     args = parser.parse_args()
     if args.rebuild_overview:
         x0, y_south = tile_xy(WEST, SOUTH, MIN_ZOOM)
