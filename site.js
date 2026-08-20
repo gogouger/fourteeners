@@ -425,21 +425,10 @@
     markers={};markerStyles={};
     locationMap.innerHTML='';
     leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false});
-    var topoTilesRequested=0,topoTilesLoaded=0,usingFallback=false,topoLayer;
-    function useTopographicFallback(){
-      if(usingFallback||!leafletMap)return;
-      usingFallback=true;
-      if(topoLayer) leafletMap.removeLayer(topoLayer);
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,attribution:'Tiles &copy; Esri — Sources: Esri, USGS, NOAA'}).addTo(leafletMap);
-    }
-    topoLayer=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'});
-    topoLayer.on('tileloadstart',function(){topoTilesRequested++;});
-    topoLayer.on('tileload',function(){topoTilesLoaded++;});
-    // Never swap out a map that is already visible because of one delayed
-    // provider tile. The fallback is only for an initial provider outage.
-    topoLayer.on('tileerror',function(){if(topoTilesLoaded===0)useTopographicFallback();});
-    topoLayer.addTo(leafletMap);
-    setTimeout(function(){if(!usingFallback&&topoTilesRequested&&topoTilesLoaded===0)useTopographicFallback();},10000);
+    // Use one reliable topographic source from the first frame. OpenTopoMap's
+    // public tile service intermittently leaves transparent gaps, which looked
+    // like black squares against the custom map background.
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,attribution:'Tiles &copy; Esri — Sources: Esri, USGS, NOAA'}).addTo(leafletMap);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
     leafletMap.fitBounds(bounds.pad(.16),{animate:false});
     L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(leafletMap);
