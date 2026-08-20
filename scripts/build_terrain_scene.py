@@ -64,7 +64,7 @@ def main():
     image.save(output / "imagery.jpg", quality=92, optimize=True, progressive=True, subsampling=0)
 
     manifest = {
-        "version": "2026-08-20-statewide-14ers-scene-v1",
+        "version": "2026-08-20-statewide-14ers-scene-v2",
         "bounds": [WEST, SOUTH, EAST, NORTH],
         "projection": "EPSG:3857",
         "heightSize": HEIGHT_SIZE,
@@ -74,7 +74,7 @@ def main():
         "maxElevation": maximum,
         "heightUnit": unit,
         "extent": [round((xmax - xmin) / 100000, 6), round((ymax - ymin) / 100000, 6)],
-        "reliefScale": 0.00016,
+        "reliefScale": 0.00008,
         "elevationSource": "USGS 3DEP Elevation ImageServer",
         "imagerySource": "USGS Imagery Only MapServer",
         "buildDate": time.strftime("%Y-%m-%d"),

@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-20-statewide-14ers-scene-v1",
+  "version": "2026-08-20-statewide-14ers-scene-v2",
   "bounds": [
     -108.26,
     36.87,
@@ -17,7 +17,7 @@
     3.862786,
     5.193313
   ],
-  "reliefScale": 0.00016,
+  "reliefScale": 0.00008,
   "elevationSource": "USGS 3DEP Elevation ImageServer",
   "imagerySource": "USGS Imagery Only MapServer",
   "buildDate": "2026-08-20"

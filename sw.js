@@ -1,4 +1,4 @@
-const CACHE_NAME = '14ers-terrain-scene-2026-08-20-v1';
+const CACHE_NAME = '14ers-terrain-scene-2026-08-20-v2';
 const TERRAIN_PREFIX = '/assets/terrain-scene/';
 
 self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()));
