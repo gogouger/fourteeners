@@ -428,8 +428,9 @@
     if(!locationMap) return;
     if(!window.L){locationMap.innerHTML='<div class="map-unavailable"><strong>Terrain map unavailable.</strong><br>Check your connection, then reload.</div>';return;}
     locationMap.innerHTML='';
-    leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false});
-    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'}).addTo(leafletMap);
+    var terrainBounds=[[36.87,-108.26],[40.51,-104.79]];
+    leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false,maxBounds:terrainBounds,maxBoundsViscosity:1});
+    L.tileLayer('assets/terrain/imagery/{z}/{x}/{y}.jpg',{tileSize:512,zoomOffset:-1,minZoom:6,maxZoom:11,minNativeZoom:6,maxNativeZoom:11,noWrap:true,bounds:terrainBounds,attribution:'USGS aerial imagery'}).addTo(leafletMap);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
     leafletMap.fitBounds(bounds.pad(.16),{animate:false});
     L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(leafletMap);
