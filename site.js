@@ -404,7 +404,19 @@
     if(!window.L){locationMap.innerHTML='<div class="map-unavailable"><strong>Terrain map unavailable.</strong><br>Check your connection, then reload.</div>';return;}
     locationMap.innerHTML='';
     leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false});
-    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'}).addTo(leafletMap);
+    var topoTilesRequested=0,topoTilesLoaded=0,usingFallback=false,topoLayer;
+    function useTopographicFallback(){
+      if(usingFallback||!leafletMap)return;
+      usingFallback=true;
+      if(topoLayer) leafletMap.removeLayer(topoLayer);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,attribution:'Tiles &copy; Esri — Sources: Esri, USGS, NOAA'}).addTo(leafletMap);
+    }
+    topoLayer=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'});
+    topoLayer.on('loading',function(){topoTilesRequested++;});
+    topoLayer.on('load',function(){topoTilesLoaded++;});
+    topoLayer.on('tileerror',useTopographicFallback);
+    topoLayer.addTo(leafletMap);
+    setTimeout(function(){if(!usingFallback&&topoTilesRequested&&topoTilesLoaded===0)useTopographicFallback();},8000);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
     leafletMap.fitBounds(bounds.pad(.16),{animate:false});
     L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(leafletMap);
