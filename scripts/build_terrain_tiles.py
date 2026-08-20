@@ -57,15 +57,15 @@ def download(service, params):
             time.sleep(2 ** attempt)
 
 
-def build_one(output_root, zoom, x, y):
+def build_one(output_root, zoom, x, y, tile_size=TILE_SIZE, force=False):
     bounds = tile_bounds(x, y, zoom)
     bbox = ",".join(f"{value:.6f}" for value in bounds)
-    common = {"bbox": bbox, "bboxSR": 3857, "imageSR": 3857, "size": f"{TILE_SIZE},{TILE_SIZE}", "adjustAspectRatio": "false", "f": "image"}
+    common = {"bbox": bbox, "bboxSR": 3857, "imageSR": 3857, "size": f"{tile_size},{tile_size}", "adjustAspectRatio": "false", "f": "image"}
     elevation_path = output_root / "elevation" / str(zoom) / str(x) / f"{y}.png"
     imagery_path = output_root / "imagery" / str(zoom) / str(x) / f"{y}.jpg"
     elevation_path.parent.mkdir(parents=True, exist_ok=True)
     imagery_path.parent.mkdir(parents=True, exist_ok=True)
-    if not elevation_path.exists():
+    if force or not elevation_path.exists():
         payload = download(ELEVATION_SERVICE, common | {"format": "tiff", "pixelType": "F32"})
         elevation = np.asarray(Image.open(BytesIO(payload)), dtype=np.float32)
         elevation = np.nan_to_num(elevation, nan=0.0, posinf=0.0, neginf=0.0)
@@ -73,7 +73,7 @@ def build_one(output_root, zoom, x, y):
         encoded = np.clip(np.rint((elevation + 32768.0) * 256.0), 0, 16777215).astype(np.uint32)
         terrain_rgb = np.stack(((encoded >> 16) & 255, (encoded >> 8) & 255, encoded & 255), axis=-1).astype(np.uint8)
         Image.fromarray(terrain_rgb, "RGB").save(elevation_path, optimize=True)
-    if not imagery_path.exists():
+    if force or not imagery_path.exists():
         payload = download(IMAGERY_SERVICE, common | {"format": "jpg", "transparent": "false"})
         Image.open(BytesIO(payload)).convert("RGB").save(imagery_path, quality=86, optimize=True, progressive=True)
     return elevation_path.stat().st_size + imagery_path.stat().st_size
@@ -84,7 +84,19 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("assets/terrain"))
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--max-zoom", type=int, default=MAX_ZOOM)
+    parser.add_argument("--rebuild-overview", action="store_true")
+    parser.add_argument("--overview-tile-size", type=int, default=2048)
     args = parser.parse_args()
+    if args.rebuild_overview:
+        x0, y_south = tile_xy(WEST, SOUTH, MIN_ZOOM)
+        x1, y_north = tile_xy(EAST, NORTH, MIN_ZOOM)
+        overview_tiles = [(MIN_ZOOM, x, y) for x in range(x0, x1 + 1) for y in range(y_north, y_south + 1)]
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            futures = [pool.submit(build_one, args.output, *tile, args.overview_tile_size, True) for tile in overview_tiles]
+            for future in as_completed(futures):
+                future.result()
+        print(f"rebuilt {len(overview_tiles)} overview tile(s) at {args.overview_tile_size}px")
+        return
     tiles = []
     catalog = json.loads(Path("peaks.json").read_text())
     for zoom in range(MIN_ZOOM, args.max_zoom + 1):
