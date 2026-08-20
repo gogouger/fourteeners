@@ -1,5 +1,5 @@
-const CACHE_NAME = '14ers-terrain-2026-08-20-14er-footprint-v7';
-const TERRAIN_PREFIX = '/assets/terrain/';
+const CACHE_NAME = '14ers-terrain-scene-2026-08-20-v1';
+const TERRAIN_PREFIX = '/assets/terrain-scene/';
 
 self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()));
 

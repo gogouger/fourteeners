@@ -18,7 +18,7 @@
   // The terrain tracker is the finished experience. Keep the legacy poster
   // available only when explicitly requested for comparison.
   var widgetLab=!/[?&]widget=poster(?:[&#]|$)/.test(location.search);
-  var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,labTerrain,demTerrain,terrainAerialImage,terrainReliefImage,droneOrbitFrame,terrainMap,terrainMarkers={},terrainOrbit;
+  var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,terrainScene;
   var terrainTreatment='alpine';
   var terrainCamera={yaw:.218,pitch:.52};
 
@@ -75,10 +75,7 @@
       var style=markerStyles[key];
       markers[key].setStyle(key===slug?{radius:10,weight:3,color:'#f8f3e8'}:style);
     });
-    Object.keys(terrainMarkers).forEach(function(key){
-      var node=terrainMarkers[key]&&terrainMarkers[key].getElement&&terrainMarkers[key].getElement();
-      if(node) node.classList.toggle('is-selected',key===slug);
-    });
+    if(terrainScene) terrainScene.setSelected(slug);
   }
 
   function activatePeak(slug,scroll,openPopup){
@@ -249,37 +246,15 @@
 
   function renderTerrain3D(peaks,summits){
     var done=peaks.filter(function(p){return !!summits[p.slug];}),remaining=peaks.length-done.length,progress=Math.round((done.length/peaks.length)*100),highest=done.length?done.slice().sort(function(a,b){return b.elev-a.elev;})[0]:null,next=peaks.slice().sort(function(a,b){return b.elev-a.elev;}).filter(function(p){return !summits[p.slug];})[0]||null,rangesStarted=ranges.filter(function(range){return peaks.some(function(p){return p.range===range&&!!summits[p.slug];});}).length;
-    if(droneOrbitFrame)cancelAnimationFrame(droneOrbitFrame);
-    if(terrainOrbit)clearInterval(terrainOrbit);
-    if(terrainMap){terrainMap.remove();terrainMap=null;}
-    terrainMarkers={};
+    if(terrainScene){terrainScene.destroy();terrainScene=null;}
     poster.className='poster-pane ribbon-lab-pane treatment-alpine terrain-webgl-pane';
-    poster.innerHTML='<div class="ribbon-lab-heading"><div><p class="ribbon-kicker">Your progress</p><h2>Every summit, in space.</h2></div><p>Colorado fourteeners · registered 3D terrain</p></div><div class="ribbon-progress-strip"><div><span>Summited</span><strong>'+done.length+'</strong></div><div><span>Remaining</span><strong>'+remaining+'</strong></div><div class="ribbon-progress-meter"><span><i style="width:'+progress+'%"></i></span><em>'+progress+'% complete</em></div></div><div class="ribbon-insights"><div><span>Highest reached</span><strong>'+(highest?esc(shortName(highest.name)):'First summit ahead')+'</strong><em>'+(highest?n(highest.elev)+' ft':'The trail starts here.')+'</em></div><div><span>Highest remaining</span><strong>'+(next?esc(shortName(next.name)):'All clear')+'</strong><em>'+(next?n(next.elev)+' ft':'Every summit logged.')+'</em></div><div><span>Ranges started</span><strong>'+rangesStarted+' <i>/ 6</i></strong><em>One summit opens a range.</em></div></div><div class="ribbon-key"><span class="key done"></span>summited <span class="key"></span>still to climb</div><div class="terrain-webgl-shell"><div id="terrain3dMap" aria-label="Interactive three-dimensional terrain map of Colorado fourteeners"></div><div class="terrain-map-attribution">USGS 3DEP terrain · USGS aerial imagery · 4× relief</div></div><div class="terrain-rotate-note"><button class="terrain-pause" type="button" aria-pressed="false">Pause orbit</button><button class="terrain-reset" type="button">Reset view</button></div><p class="ribbon-help">All 58 summits are framed at start. Drag left or right to orbit; use the controls or scroll to zoom.</p>';
-    if(!window.maplibregl){poster.querySelector('.terrain-webgl-shell').innerHTML='<p class="loading">3D terrain is unavailable in this browser. Use the location map below.</p>';return;}
-    var bounds=[[-108.26,36.87],[-104.79,40.51]],mapRoot=poster.querySelector('#terrain3dMap'),paused=false,interacting=false,automaticOrbit=false;
-    var terrainView={center:[-106.53,38.72],zoom:6,bearing:24,pitch:62},terrainBounds=new maplibregl.LngLatBounds(),rotateDrag=null;
-    peaks.forEach(function(p){terrainBounds.extend([p.latlon[1],p.latlon[0]]);});
-    terrainMap=new maplibregl.Map({container:mapRoot,center:terrainView.center,zoom:terrainView.zoom,bearing:terrainView.bearing,pitch:terrainView.pitch,maxPitch:80,maxBounds:bounds,renderWorldCopies:false,style:{version:8,sources:{imagery:{type:'raster',tiles:['assets/terrain/imagery/{z}/{x}/{y}.jpg?v=terrain-z6-1024'],tileSize:512,minzoom:6,maxzoom:6,attribution:'USGS'},dem:{type:'raster-dem',tiles:['assets/terrain/elevation/{z}/{x}/{y}.png?v=terrain-z6-1024'],tileSize:512,minzoom:6,maxzoom:6,encoding:'terrarium',attribution:'USGS 3DEP'}},layers:[{id:'background',type:'background',paint:{'background-color':'#dce4d5'}},{id:'imagery',type:'raster',source:'imagery',paint:{'raster-saturation':-.08,'raster-contrast':.08,'raster-fade-duration':0}}]},antialias:true});
-    terrainMap.dragPan.disable();
-    terrainMap.dragRotate.disable();
-    terrainMap.addControl(new maplibregl.NavigationControl({showCompass:true}), 'top-right');
-    terrainMap.on('load',function(){
-      terrainMap.setTerrain({source:'dem',exaggeration:4});
-      peaks.forEach(function(p){var el=document.createElement('button'),completed=!!summits[p.slug];el.type='button';el.className='terrain-summit-marker '+(completed?'done ':'')+(p.slug===activeSlug?'is-selected ':'');el.setAttribute('aria-label','Open '+p.name+' details');el.title=p.name+' · '+n(p.elev)+' ft';el.addEventListener('click',function(){activatePeak(p.slug,true,true);});el.addEventListener('mouseenter',function(){el.dataset.label=shortName(p.name);});el.addEventListener('mouseleave',function(){delete el.dataset.label;});var marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p.latlon[1],p.latlon[0]]).addTo(terrainMap);terrainMarkers[p.slug]=marker;});
-      frameAllSummits(0);
-      automaticOrbit=true;
-      setTimeout(function(){automaticOrbit=false;setPaused(false);},80);
-    });
-    function setPaused(value){paused=value;poster.querySelector('.terrain-pause').textContent=value?'Resume orbit':'Pause orbit';poster.querySelector('.terrain-pause').setAttribute('aria-pressed',String(value));}
-    function frameAllSummits(duration){terrainMap.fitBounds(terrainBounds,{padding:{top:34,right:28,bottom:34,left:28},duration:duration,maxZoom:6});terrainMap.setPitch(terrainView.pitch);}
-    mapRoot.addEventListener('pointerdown',function(event){if(event.button!==0||event.target.closest('button'))return;rotateDrag={id:event.pointerId,x:event.clientX,bearing:terrainMap.getBearing()};interacting=true;setPaused(true);mapRoot.setPointerCapture(event.pointerId);});
-    mapRoot.addEventListener('pointermove',function(event){if(!rotateDrag||event.pointerId!==rotateDrag.id)return;terrainMap.setBearing(rotateDrag.bearing-(event.clientX-rotateDrag.x)*.2);});
-    function endRotateDrag(event){if(!rotateDrag||event.pointerId!==rotateDrag.id)return;rotateDrag=null;interacting=false;automaticOrbit=false;}
-    mapRoot.addEventListener('pointerup',endRotateDrag);mapRoot.addEventListener('pointercancel',endRotateDrag);
-    terrainMap.on('rotatestart',function(){if(!automaticOrbit){interacting=true;setPaused(true);}});terrainMap.on('rotateend',function(){automaticOrbit=false;});terrainMap.on('moveend',function(){if(!rotateDrag)interacting=false;});
-    terrainOrbit=setInterval(function(){if(!paused&&!interacting&&terrainMap&&terrainMap.loaded()){automaticOrbit=true;terrainMap.rotateTo(terrainMap.getBearing()+.25,{duration:650,animate:true});}},700);
-    poster.querySelector('.terrain-pause').addEventListener('click',function(){setPaused(!paused);});
-    poster.querySelector('.terrain-reset').addEventListener('click',function(){setPaused(true);terrainMap.setBearing(terrainView.bearing);frameAllSummits(700);});
+    poster.innerHTML='<div class="ribbon-lab-heading"><div><p class="ribbon-kicker">Your progress</p><h2>Every summit, in space.</h2></div><p>Colorado fourteeners · registered 3D terrain</p></div><div class="ribbon-progress-strip"><div><span>Summited</span><strong>'+done.length+'</strong></div><div><span>Remaining</span><strong>'+remaining+'</strong></div><div class="ribbon-progress-meter"><span><i style="width:'+progress+'%"></i></span><em>'+progress+'% complete</em></div></div><div class="ribbon-insights"><div><span>Highest reached</span><strong>'+(highest?esc(shortName(highest.name)):'First summit ahead')+'</strong><em>'+(highest?n(highest.elev)+' ft':'The trail starts here.')+'</em></div><div><span>Highest remaining</span><strong>'+(next?esc(shortName(next.name)):'All clear')+'</strong><em>'+(next?n(next.elev)+' ft':'Every summit logged.')+'</em></div><div><span>Ranges started</span><strong>'+rangesStarted+' <i>/ 6</i></strong><em>One summit opens a range.</em></div></div><div class="ribbon-key"><span class="key done"></span>summited <span class="key"></span>still to climb <span class="terrain-range-key">range rings: '+ranges.map(function(range,index){return '<i class="range-'+index+'"></i>'+esc(range.replace('Tenmile-Mosquito','Tenmile / Mosquito'));}).join('')+'</span></div><div class="terrain-webgl-shell"><div id="terrain3dMap" aria-label="Interactive three-dimensional terrain map of Colorado fourteeners"></div><div class="terrain-map-attribution">USGS 3DEP terrain · USGS aerial imagery · 16× visual relief</div></div><div class="terrain-rotate-note"><button class="terrain-pause" type="button" aria-pressed="false">Pause orbit</button><button class="terrain-reset" type="button">Reset view</button></div><p class="ribbon-help">All 58 summits are framed at start. Drag to orbit, scroll to zoom, and select any summit for details.</p>';
+    var mapRoot=poster.querySelector('#terrain3dMap'),pause=poster.querySelector('.terrain-pause');
+    if(!window.TerrainSceneView){mapRoot.innerHTML='<p class="loading">3D terrain is unavailable in this browser. Use the location map below.</p>';return;}
+    terrainScene=new window.TerrainSceneView(mapRoot,{peaks:peaks,summits:summits,ranges:ranges,onSelect:function(slug){activatePeak(slug,true,true);},onPause:function(value){pause.textContent=value?'Resume orbit':'Pause orbit';pause.setAttribute('aria-pressed',String(value));}});
+    if(activeSlug) terrainScene.setSelected(activeSlug);
+    pause.addEventListener('click',function(){terrainScene.setPaused(!terrainScene.paused);pause.textContent=terrainScene.paused?'Resume orbit':'Pause orbit';pause.setAttribute('aria-pressed',String(terrainScene.paused));});
+    poster.querySelector('.terrain-reset').addEventListener('click',function(){terrainScene.reset();pause.textContent='Resume orbit';pause.setAttribute('aria-pressed','true');});
   }
 
   function renderRibbonLab(peaks,summits){
@@ -428,9 +403,8 @@
     if(!locationMap) return;
     if(!window.L){locationMap.innerHTML='<div class="map-unavailable"><strong>Terrain map unavailable.</strong><br>Check your connection, then reload.</div>';return;}
     locationMap.innerHTML='';
-    var terrainBounds=[[36.87,-108.26],[40.51,-104.79]];
-    leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false,maxBounds:terrainBounds,maxBoundsViscosity:1});
-    L.tileLayer('assets/map-imagery/imagery/{z}/{x}/{y}.jpg',{tileSize:512,zoomOffset:-1,minZoom:7,maxZoom:7,minNativeZoom:7,maxNativeZoom:7,noWrap:true,bounds:terrainBounds,attribution:'USGS aerial imagery'}).addTo(leafletMap);
+    leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false});
+    L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'}).addTo(leafletMap);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
     leafletMap.fitBounds(bounds.pad(.16),{animate:false});
     L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(leafletMap);
@@ -456,8 +430,6 @@
     fetch('terrain-profile.json').then(function(r){if(!r.ok)throw 0;return r.json();})
   ]).then(function(data){
     var peaks=data[0],summits=data[1]||{},by={};
-    labTerrain=data[2];
-    demTerrain=null;
     if(!Array.isArray(peaks)||peaks.length!==58)throw 0;
     ranges.forEach(function(range){by[range]=[];});
     peaks.forEach(function(p){by[p.range].push(p);});

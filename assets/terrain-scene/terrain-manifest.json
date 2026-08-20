@@ -1,0 +1,24 @@
+{
+  "version": "2026-08-20-statewide-14ers-scene-v1",
+  "bounds": [
+    -108.26,
+    36.87,
+    -104.79,
+    40.51
+  ],
+  "projection": "EPSG:3857",
+  "heightSize": 2048,
+  "imageSize": 4096,
+  "meshSize": 513,
+  "minElevation": 1429.4000244140625,
+  "maxElevation": 4362.60009765625,
+  "heightUnit": 0.1,
+  "extent": [
+    3.862786,
+    5.193313
+  ],
+  "reliefScale": 0.00016,
+  "elevationSource": "USGS 3DEP Elevation ImageServer",
+  "imagerySource": "USGS Imagery Only MapServer",
+  "buildDate": "2026-08-20"
+}
