@@ -49,7 +49,7 @@
   };
   TerrainSceneView.prototype.load=async function(){
     try{
-      var manifest=await fetch('assets/terrain-scene/terrain-manifest.json',{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error('terrain manifest');return r.json();});
+      var manifest=await fetch('assets/terrain-scene/terrain-manifest.json?v=terrain-scene-2',{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error('terrain manifest');return r.json();});
       var height=await fetch('assets/terrain-scene/heightmap.bin').then(function(r){if(!r.ok)throw new Error('terrain heightmap');return r.arrayBuffer();});
       var image=await new Promise(function(resolve,reject){var i=new Image();i.onload=function(){resolve(i);};i.onerror=reject;i.src='assets/terrain-scene/imagery.jpg';});
       this.manifest=manifest;this.heights=new Uint16Array(height);this.image=image;this.ready();
