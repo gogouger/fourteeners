@@ -18,7 +18,7 @@
   // The terrain tracker is the finished experience. Keep the legacy poster
   // available only when explicitly requested for comparison.
   var widgetLab=!/[?&]widget=poster(?:[&#]|$)/.test(location.search);
-  var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,labTerrain,demTerrain,terrainAerialImage,terrainReliefImage,droneOrbitFrame;
+  var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,labTerrain,demTerrain,terrainAerialImage,terrainReliefImage,droneOrbitFrame,terrainMap,terrainMarkers={},terrainOrbit;
   var terrainTreatment='alpine';
   var terrainCamera={yaw:.218,pitch:.52};
 
@@ -74,6 +74,10 @@
     Object.keys(markers).forEach(function(key){
       var style=markerStyles[key];
       markers[key].setStyle(key===slug?{radius:10,weight:3,color:'#f8f3e8'}:style);
+    });
+    Object.keys(terrainMarkers).forEach(function(key){
+      var node=terrainMarkers[key]&&terrainMarkers[key].getElement&&terrainMarkers[key].getElement();
+      if(node) node.classList.toggle('is-selected',key===slug);
     });
   }
 
@@ -243,8 +247,34 @@
     Array.prototype.slice.call(poster.querySelectorAll('.alpine-3d-peak')).forEach(function(peak){peak.addEventListener('mouseenter',function(){showPeak(peak);});peak.addEventListener('mouseleave',hidePeak);peak.addEventListener('focus',function(){showPeak(peak);});peak.addEventListener('blur',hidePeak);peak.addEventListener('click',function(){activatePeak(peak.dataset.slug,true,true);});peak.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();activatePeak(peak.dataset.slug,true,true);}});});
   }
 
+  function renderTerrain3D(peaks,summits){
+    var done=peaks.filter(function(p){return !!summits[p.slug];}),remaining=peaks.length-done.length,progress=Math.round((done.length/peaks.length)*100),highest=done.length?done.slice().sort(function(a,b){return b.elev-a.elev;})[0]:null,next=peaks.slice().sort(function(a,b){return b.elev-a.elev;}).filter(function(p){return !summits[p.slug];})[0]||null,rangesStarted=ranges.filter(function(range){return peaks.some(function(p){return p.range===range&&!!summits[p.slug];});}).length;
+    if(droneOrbitFrame)cancelAnimationFrame(droneOrbitFrame);
+    if(terrainOrbit)clearInterval(terrainOrbit);
+    if(terrainMap){terrainMap.remove();terrainMap=null;}
+    terrainMarkers={};
+    poster.className='poster-pane ribbon-lab-pane treatment-alpine terrain-webgl-pane';
+    poster.innerHTML='<div class="ribbon-lab-heading"><div><p class="ribbon-kicker">Your progress</p><h2>Every summit, in space.</h2></div><p>Colorado fourteeners · registered 3D terrain</p></div><div class="ribbon-progress-strip"><div><span>Summited</span><strong>'+done.length+'</strong></div><div><span>Remaining</span><strong>'+remaining+'</strong></div><div class="ribbon-progress-meter"><span><i style="width:'+progress+'%"></i></span><em>'+progress+'% complete</em></div></div><div class="ribbon-insights"><div><span>Highest reached</span><strong>'+(highest?esc(shortName(highest.name)):'First summit ahead')+'</strong><em>'+(highest?n(highest.elev)+' ft':'The trail starts here.')+'</em></div><div><span>Highest remaining</span><strong>'+(next?esc(shortName(next.name)):'All clear')+'</strong><em>'+(next?n(next.elev)+' ft':'Every summit logged.')+'</em></div><div><span>Ranges started</span><strong>'+rangesStarted+' <i>/ 6</i></strong><em>One summit opens a range.</em></div></div><div class="ribbon-key"><span class="key done"></span>summited <span class="key"></span>still to climb</div><div class="terrain-webgl-shell"><div id="terrain3dMap" aria-label="Interactive three-dimensional terrain map of Colorado fourteeners"></div><div class="terrain-map-attribution">USGS 3DEP terrain · USGS aerial imagery</div></div><div class="terrain-rotate-note"><button class="terrain-pause" type="button" aria-pressed="false">Pause orbit</button><button class="terrain-reset" type="button">Reset view</button></div><p class="ribbon-help">Every marker uses its audited geographic coordinate on the same registered terrain tiles. Drag to explore the 14er footprint.</p>';
+    if(!window.maplibregl){poster.querySelector('.terrain-webgl-shell').innerHTML='<p class="loading">3D terrain is unavailable in this browser. Use the location map below.</p>';return;}
+    var bounds=[[-108.26,36.87],[-104.79,40.51]],mapRoot=poster.querySelector('#terrain3dMap'),paused=false,interacting=false,automaticOrbit=false;
+    terrainMap=new maplibregl.Map({container:mapRoot,center:[-106.53,38.72],zoom:7.35,bearing:24,pitch:58,maxPitch:75,maxBounds:bounds,style:{version:8,sources:{imagery:{type:'raster',tiles:['assets/terrain/imagery/{z}/{x}/{y}.jpg'],tileSize:512,minzoom:8,maxzoom:11,attribution:'USGS'},dem:{type:'raster-dem',tiles:['assets/terrain/elevation/{z}/{x}/{y}.png'],tileSize:512,minzoom:8,maxzoom:11,encoding:'terrarium',attribution:'USGS 3DEP'}},layers:[{id:'background',type:'background',paint:{'background-color':'#dce4d5'}},{id:'imagery',type:'raster',source:'imagery',paint:{'raster-saturation':-.08,'raster-contrast':.08,'raster-fade-duration':0}}]},antialias:true});
+    terrainMap.addControl(new maplibregl.NavigationControl({showCompass:true}), 'top-right');
+    terrainMap.on('load',function(){
+      terrainMap.setTerrain({source:'dem',exaggeration:1.45});
+      peaks.forEach(function(p){var el=document.createElement('button'),completed=!!summits[p.slug];el.type='button';el.className='terrain-summit-marker '+(completed?'done ':'')+(p.slug===activeSlug?'is-selected ':'');el.setAttribute('aria-label','Open '+p.name+' details');el.title=p.name+' · '+n(p.elev)+' ft';el.addEventListener('click',function(){activatePeak(p.slug,true,true);});el.addEventListener('mouseenter',function(){el.dataset.label=shortName(p.name);});el.addEventListener('mouseleave',function(){delete el.dataset.label;});var marker=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([p.latlon[1],p.latlon[0]]).addTo(terrainMap);terrainMarkers[p.slug]=marker;});
+      automaticOrbit=true;
+      terrainMap.fitBounds(bounds,{padding:{top:48,right:44,bottom:48,left:44},duration:0,maxZoom:7.4});
+      setTimeout(function(){automaticOrbit=false;setPaused(false);},80);
+    });
+    function setPaused(value){paused=value;poster.querySelector('.terrain-pause').textContent=value?'Resume orbit':'Pause orbit';poster.querySelector('.terrain-pause').setAttribute('aria-pressed',String(value));}
+    terrainMap.on('dragstart',function(){interacting=true;setPaused(true);});terrainMap.on('rotatestart',function(){if(!automaticOrbit){interacting=true;setPaused(true);}});terrainMap.on('rotateend',function(){automaticOrbit=false;});terrainMap.on('moveend',function(){interacting=false;});
+    terrainOrbit=setInterval(function(){if(!paused&&!interacting&&terrainMap&&terrainMap.loaded()){automaticOrbit=true;terrainMap.rotateTo(terrainMap.getBearing()+.25,{duration:650,animate:true});}},700);
+    poster.querySelector('.terrain-pause').addEventListener('click',function(){setPaused(!paused);});
+    poster.querySelector('.terrain-reset').addEventListener('click',function(){setPaused(true);terrainMap.easeTo({center:[-106.53,38.72],zoom:7.35,bearing:24,pitch:58,duration:700});});
+  }
+
   function renderRibbonLab(peaks,summits){
-    if(terrainTreatment==='alpine'){renderAlpinePerspective(peaks,summits);return;}
+    if(terrainTreatment==='alpine'){renderTerrain3D(peaks,summits);return;}
     var ordered=peaks.slice(),left=42,right=778,base=272,range=438,alpineRoute=['San Juan','Elk','Sawatch','Tenmile-Mosquito','Front','Sangre de Cristo'];
     if(terrainTreatment==='ranges') ordered.sort(function(a,b){return ranges.indexOf(a.range)-ranges.indexOf(b.range)||b.elev-a.elev;});
     else if(terrainTreatment==='alpine') ordered.sort(function(a,b){return a.latlon[1]-b.latlon[1]||a.latlon[0]-b.latlon[0];});
@@ -413,12 +443,11 @@
   Promise.all([
     fetch('peaks.json').then(function(r){if(!r.ok)throw 0;return r.json();}),
     fetch('summits.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json();}),
-    fetch('terrain-profile.json').then(function(r){if(!r.ok)throw 0;return r.json();}),
-    fetch('assets/usgs-colorado-dem-max.tiff',{cache:'force-cache'}).then(function(r){if(!r.ok)throw 0;return r.arrayBuffer();}).then(decodeElevationTiff).catch(function(){return null;})
+    fetch('terrain-profile.json').then(function(r){if(!r.ok)throw 0;return r.json();})
   ]).then(function(data){
     var peaks=data[0],summits=data[1]||{},by={};
     labTerrain=data[2];
-    demTerrain=data[3];
+    demTerrain=null;
     if(!Array.isArray(peaks)||peaks.length!==58)throw 0;
     ranges.forEach(function(range){by[range]=[];});
     peaks.forEach(function(p){by[p.range].push(p);});
