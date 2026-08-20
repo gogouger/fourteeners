@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 
 WEST, EAST, SOUTH, NORTH = -108.26, -104.79, 36.87, 40.51
-MIN_ZOOM, MAX_ZOOM, TILE_SIZE = 8, 11, 512
+MIN_ZOOM, MAX_ZOOM, TILE_SIZE = 5, 11, 512
 EARTH_RADIUS = 6378137.0
 ELEVATION_SERVICE = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage"
 IMAGERY_SERVICE = "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export"
@@ -110,7 +110,7 @@ def main():
             if index % 25 == 0 or index == len(tiles):
                 print(f"{index}/{len(tiles)} tiles · {total / 1024 / 1024:.1f} MiB")
     manifest = {
-        "version": "2026-08-20-14er-footprint-v1",
+        "version": "2026-08-20-14er-footprint-v2",
         "bounds": [WEST, SOUTH, EAST, NORTH],
         "minzoom": MIN_ZOOM,
         "maxzoom": args.max_zoom,
