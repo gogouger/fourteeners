@@ -183,15 +183,8 @@
     var done=peaks.filter(function(p){return !!summits[p.slug];}),remaining=peaks.length-done.length,progress=Math.round((done.length/peaks.length)*100),highest=done.length?done.slice().sort(function(a,b){return b.elev-a.elev;})[0]:null,next=peaks.slice().sort(function(a,b){return b.elev-a.elev;}).filter(function(p){return !summits[p.slug];})[0]||null,rangesStarted=ranges.filter(function(range){return peaks.some(function(p){return p.range===range&&!!summits[p.slug];});}).length;
     var west=-109.05,east=-102.04,south=36.99,north=41,sceneWest=west-(east-west)*.5,sceneEast=east+(east-west)*.5,sceneSouth=south-(north-south)*.5,sceneNorth=north+(north-south)*.5,baseCenterX=421.5,baseCenterY=220,terrainSpan=830,terrainFloor=14000,terrainCeiling=14450,terrainHeight=42,terrainSurfaceHeight=130;
     function sampleDem(sampleLon,sampleLat){var x=Math.max(0,Math.min(demTerrain.columns-1,(sampleLon-west)/(east-west)*(demTerrain.columns-1))),y=Math.max(0,Math.min(demTerrain.rows-1,(north-sampleLat)/(north-south)*(demTerrain.rows-1))),x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(demTerrain.columns-1,x0+1),y1=Math.min(demTerrain.rows-1,y0+1),mixX=x-x0,mixY=y-y0,a=demTerrain.values[y0*demTerrain.columns+x0],b=demTerrain.values[y0*demTerrain.columns+x1],c=demTerrain.values[y1*demTerrain.columns+x0],d=demTerrain.values[y1*demTerrain.columns+x1];return (a+(b-a)*mixX+(c+(d-c)*mixX-a-(b-a)*mixX)*mixY)*3.28084;}
-    // 3DEP is a statewide grid, so anchor its local relief at the published
-    // summit coordinates. The terrain surface and a peak marker now agree.
-    var summitAnchors=demTerrain?peaks.map(function(peak){var sampled=sampleDem(peak.latlon[1],peak.latlon[0]);return {lat:peak.latlon[0],lon:peak.latlon[1],lift:Math.max(0,peak.elev-sampled)};}):[];
     function terrainElevation(lon,lat){
-      if(demTerrain){
-        var elevation=sampleDem(lon,lat),adjustment=0;
-        summitAnchors.forEach(function(anchor){var dx=(lon-anchor.lon)*54,dy=(lat-anchor.lat)*69,distance=Math.sqrt(dx*dx+dy*dy);if(distance<13){var influence=Math.pow(1-distance/13,2);adjustment=Math.max(adjustment,anchor.lift*influence);}});
-        return elevation+adjustment;
-      }
+      if(demTerrain)return sampleDem(lon,lat);
       var elevation=5200;peaks.forEach(function(peak){var dx=(lon-peak.latlon[1])*54,dy=(lat-peak.latlon[0])*69,distance=Math.sqrt(dx*dx+dy*dy);elevation=Math.max(elevation,peak.elev-distance*160);});return Math.max(5200,elevation);
     }
     function projectElevation(lon,lat,elevation){var lonFraction=(lon-west)/(east-west),latFraction=(lat-south)/(north-south),x=lonFraction-.5,y=latFraction-.5,cosYaw=Math.cos(terrainCamera.yaw),sinYaw=Math.sin(terrainCamera.yaw),orbitX=x*cosYaw-y*sinYaw,orbitY=x*sinYaw+y*cosYaw,groundX=baseCenterX+orbitX*terrainSpan,groundY=baseCenterY+orbitY*terrainSpan*.34;return {groundX:groundX,groundY:groundY,x:groundX,y:groundY-((elevation-terrainFloor)/(terrainCeiling-terrainFloor))*terrainHeight};}
