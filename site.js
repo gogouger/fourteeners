@@ -19,6 +19,8 @@
   // available only when explicitly requested for comparison.
   var widgetLab=!/[?&]widget=poster(?:[&#]|$)/.test(location.search);
   var leafletMap,markers={},markerStyles={},activeSlug,labPeaks,labSummits,terrainScene;
+  var currentPeaks,currentSummits,currentBy,editorAuthed=false,authControl=document.getElementById('authControl');
+  var summitApi=embed?'api/summits':'/api/summits';
   var terrainTreatment='alpine';
   var terrainCamera={yaw:.218,pitch:.52};
 
@@ -47,6 +49,21 @@
   function addClass(el,name){el.classList.add(name);}
   function removeClass(el,name){el.classList.remove(name);}
   function fail(){poster.innerHTML='<p class="loading">The tracker data could not load. Try reloading.</p>';if(list)list.innerHTML='';if(locationMap)locationMap.innerHTML='<p class="loading">The map data could not load. Try reloading.</p>';}
+
+  function renderAuthControl(){if(!authControl)return;authControl.textContent=editorAuthed?'Log out':'Log in to edit';authControl.classList.toggle('is-authed',editorAuthed);}
+  function makeLoginModal(){
+    var modal=document.createElement('div');
+    modal.className='summit-login-modal';
+    modal.innerHTML='<div class="summit-login-card" role="dialog" aria-modal="true" aria-label="Log in to edit summit progress"><button class="summit-login-close" type="button" aria-label="Close">×</button><p class="eyebrow">Private progress editing</p><h2>Log in</h2><p>Use the same account as Meron and Athenaeum.</p><form novalidate><label>Username<input name="username" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><span class="summit-login-error" role="alert" hidden></span><button type="submit">Sign in</button></form></div>';
+    document.body.appendChild(modal);
+    function close(){modal.remove();}
+    modal.addEventListener('mousedown',function(event){if(event.target===modal)close();});modal.querySelector('.summit-login-close').addEventListener('click',close);
+    modal.querySelector('form').addEventListener('submit',function(event){event.preventDefault();var form=event.currentTarget,submit=form.querySelector('button[type="submit"]'),error=form.querySelector('.summit-login-error');error.hidden=true;submit.disabled=true;submit.textContent='Signing in…';fetch('/__authlogin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({username:form.username.value,password:form.password.value,keepMeLoggedIn:true,requestMethod:'GET',targetURL:location.href})}).then(function(response){return response.json().then(function(data){return {ok:response.ok,data:data};});}).then(function(result){if(!result.ok||!result.data||result.data.status!=='OK')throw new Error((result.data&&result.data.message)||'Invalid username or password');editorAuthed=true;renderAuthControl();close();renderTracker();}).catch(function(errorValue){error.textContent=errorValue.message||'Login failed';error.hidden=false;}).finally(function(){submit.disabled=false;submit.textContent='Sign in';});});
+    setTimeout(function(){modal.querySelector('input').focus();},30);
+  }
+  function refreshAuth(){return fetch('/__authstate',{credentials:'include',headers:{Accept:'application/json'}}).then(function(response){if(!response.ok)throw new Error('No session');return response.json();}).then(function(state){editorAuthed=!!(state&&state.data&&state.data.authentication_level>=1);renderAuthControl();}).catch(function(){editorAuthed=false;renderAuthControl();});}
+  function renderTracker(){if(!currentPeaks||!currentSummits||!currentBy)return;if(widgetLab){labPeaks=currentPeaks;labSummits=currentSummits;renderRibbonLab(currentPeaks,currentSummits);}else poster.innerHTML=posterMarkup(currentPeaks,currentSummits);renderStats(currentPeaks,currentSummits,currentBy);renderList(currentBy,currentSummits);renderLeafletMap(currentPeaks,currentSummits);if(!widgetLab)Array.prototype.slice.call(document.querySelectorAll('.poster-peak')).forEach(function(peak){peak.addEventListener('click',function(){activatePeak(peak.dataset.slug,true,true);});peak.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();activatePeak(peak.dataset.slug,true,true);}});});}
+  function saveSummit(slug,done){fetch(summitApi+'/'+encodeURIComponent(slug),{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({done:done})}).then(function(response){return response.json().then(function(data){return {ok:response.ok,data:data};});}).then(function(result){if(!result.ok)throw new Error((result.data&&result.data.detail)||'Could not save summit progress');currentSummits=result.data.summits||{};renderTracker();activatePeak(slug,false,true);}).catch(function(errorValue){window.alert(errorValue.message||'Could not save summit progress.');refreshAuth();});}
 
   function setRowOpen(row,open){
     if(!row) return;
@@ -381,9 +398,10 @@
       var complete=by[range].filter(function(p){return !!summits[p.slug];}).length;
       html+='<section class="range"><button class="range-toggle" type="button" aria-expanded="false"><span class="range-title">'+esc(range)+'</span><span class="range-summary">'+complete+' / '+by[range].length+' summited</span><span class="chevron">+</span></button><div class="range-peaks" hidden>';
       by[range].forEach(function(p){
-        var s=summits[p.slug],status=s?'Summited '+date(s.date):'Not yet summited';
+        var s=summits[p.slug],status=s?'<span class="peak-detail-status done"><i aria-hidden="true">✓</i>Summited '+date(s.date)+'</span>':'<span class="peak-detail-status"><i aria-hidden="true"></i>Still to climb</span>',completion=s?'<i class="peak-completion done" aria-label="Summited">✓</i>':'<i class="peak-completion" aria-label="Still to climb"></i>';
         var trail='https://www.alltrails.com/search?q='+encodeURIComponent(p.name+' Colorado');
-        html+='<div class="peak-row" id="peak-'+esc(p.slug)+'"><button class="peak-toggle" type="button" aria-expanded="false"><span class="rank">'+(p.ranked?'#':'—')+'</span><span class="peak-name">'+esc(p.name)+(p.ranked?'':'<span class="unranked">unranked</span>')+'</span><span class="peak-meta">'+n(p.elev)+' ft · class '+p.class+'</span><span class="chevron">+</span></button><div class="peak-detail" hidden><p>'+status+(s&&s.note?' · '+esc(s.note):'')+'</p><div class="peak-links"><a href="'+trail+'" target="_blank" rel="noopener">AllTrails ↗</a><a href="https://www.14ers.com/14ers" target="_blank" rel="noopener">14ers.com ↗</a>'+(s&&s.strava?'<a href="'+esc(s.strava)+'" target="_blank" rel="noopener">Strava ↗</a>':'')+'</div></div></div>';
+        var editor=editorAuthed?'<button class="summit-edit '+(s?'remove':'add')+'" type="button" data-summit-toggle="'+esc(p.slug)+'" data-done="'+(!s)+'">'+(s?'Mark not summited':'Mark as summited')+'</button>':'';
+        html+='<div class="peak-row '+(s?'done':'')+'" id="peak-'+esc(p.slug)+'"><button class="peak-toggle" type="button" aria-expanded="false"><span class="rank">'+(p.ranked?'#':'—')+'</span><span class="peak-name">'+completion+esc(p.name)+(p.ranked?'':'<span class="unranked">unranked</span>')+'</span><span class="peak-meta">'+n(p.elev)+' ft · class '+p.class+'</span><span class="chevron">+</span></button><div class="peak-detail" hidden><p>'+status+(s&&s.note?' · '+esc(s.note):'')+'</p><div class="peak-links"><a href="'+trail+'" target="_blank" rel="noopener">AllTrails ↗</a><a href="https://www.14ers.com/14ers" target="_blank" rel="noopener">14ers.com ↗</a>'+(s&&s.strava?'<a href="'+esc(s.strava)+'" target="_blank" rel="noopener">Strava ↗</a>':'')+editor+'</div></div></div>';
       });
       html+='</div></section>';
     });
@@ -397,11 +415,14 @@
         if(hasClass(row,'open')) setRowOpen(row,false); else activatePeak(slug,false,true);
       });
     });
+    Array.prototype.slice.call(document.querySelectorAll('[data-summit-toggle]')).forEach(function(button){button.addEventListener('click',function(){saveSummit(button.dataset.summitToggle,button.dataset.done==='true');});});
   }
 
   function renderLeafletMap(peaks,summits){
     if(!locationMap) return;
     if(!window.L){locationMap.innerHTML='<div class="map-unavailable"><strong>Terrain map unavailable.</strong><br>Check your connection, then reload.</div>';return;}
+    if(leafletMap){leafletMap.remove();leafletMap=null;}
+    markers={};markerStyles={};
     locationMap.innerHTML='';
     leafletMap=L.map(locationMap,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomSnap:.25,zoomAnimation:false,fadeAnimation:false});
     var topoTilesRequested=0,topoTilesLoaded=0,usingFallback=false,topoLayer;
@@ -412,11 +433,11 @@
       L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,attribution:'Tiles &copy; Esri — Sources: Esri, USGS, NOAA'}).addTo(leafletMap);
     }
     topoLayer=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'});
-    topoLayer.on('loading',function(){topoTilesRequested++;});
-    topoLayer.on('load',function(){topoTilesLoaded++;});
+    topoLayer.on('tileloadstart',function(){topoTilesRequested++;});
+    topoLayer.on('tileload',function(){topoTilesLoaded++;});
     topoLayer.on('tileerror',useTopographicFallback);
     topoLayer.addTo(leafletMap);
-    setTimeout(function(){if(!usingFallback&&topoTilesRequested&&topoTilesLoaded===0)useTopographicFallback();},8000);
+    setTimeout(function(){if(!usingFallback&&topoTilesRequested&&topoTilesLoaded===0)useTopographicFallback();},10000);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
     leafletMap.fitBounds(bounds.pad(.16),{animate:false});
     L.control.scale({imperial:true,metric:false,position:'bottomright'}).addTo(leafletMap);
@@ -436,28 +457,18 @@
     setTimeout(function(){if(leafletMap)leafletMap.invalidateSize();},80);
   }
 
+  if(authControl)authControl.addEventListener('click',function(){if(editorAuthed){fetch('/__authlogout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'}).finally(refreshAuth);}else makeLoginModal();});
+  refreshAuth();
   Promise.all([
     fetch('peaks.json').then(function(r){if(!r.ok)throw 0;return r.json();}),
-    fetch('summits.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json();}),
+    fetch(summitApi,{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json();}).catch(function(){return fetch('summits.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json();});}),
     fetch('terrain-profile.json').then(function(r){if(!r.ok)throw 0;return r.json();})
   ]).then(function(data){
     var peaks=data[0],summits=data[1]||{},by={};
     if(!Array.isArray(peaks)||peaks.length!==58)throw 0;
     ranges.forEach(function(range){by[range]=[];});
     peaks.forEach(function(p){by[p.range].push(p);});
-    if(widgetLab){
-      labPeaks=peaks;
-      labSummits=summits;
-      renderRibbonLab(peaks,summits);
-    }else{
-      poster.innerHTML=posterMarkup(peaks,summits);
-    }
-    renderStats(peaks,summits,by);
-    renderList(by,summits);
-    renderLeafletMap(peaks,summits);
-    if(!widgetLab) Array.prototype.slice.call(document.querySelectorAll('.poster-peak')).forEach(function(peak){
-      peak.addEventListener('click',function(){activatePeak(peak.dataset.slug,true,true);});
-      peak.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();activatePeak(peak.dataset.slug,true,true);}});
-    });
+    currentPeaks=peaks;currentSummits=summits;currentBy=by;
+    renderTracker();
   }).catch(fail);
 })();
