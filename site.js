@@ -435,7 +435,9 @@
     topoLayer=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://opentopomap.org">OpenTopoMap</a>'});
     topoLayer.on('tileloadstart',function(){topoTilesRequested++;});
     topoLayer.on('tileload',function(){topoTilesLoaded++;});
-    topoLayer.on('tileerror',useTopographicFallback);
+    // Never swap out a map that is already visible because of one delayed
+    // provider tile. The fallback is only for an initial provider outage.
+    topoLayer.on('tileerror',function(){if(topoTilesLoaded===0)useTopographicFallback();});
     topoLayer.addTo(leafletMap);
     setTimeout(function(){if(!usingFallback&&topoTilesRequested&&topoTilesLoaded===0)useTopographicFallback();},10000);
     var bounds=L.latLngBounds(peaks.map(function(p){return p.latlon;}));
