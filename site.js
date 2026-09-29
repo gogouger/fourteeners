@@ -50,17 +50,8 @@
   function removeClass(el,name){el.classList.remove(name);}
   function fail(){poster.innerHTML='<p class="loading">The tracker data could not load. Try reloading.</p>';if(list)list.innerHTML='';if(locationMap)locationMap.innerHTML='<p class="loading">The map data could not load. Try reloading.</p>';}
 
-  function renderAuthControl(){if(!authControl)return;authControl.textContent=editorAuthed?'Log out':'Log in to edit';authControl.classList.toggle('is-authed',editorAuthed);}
-  function makeLoginModal(){
-    var modal=document.createElement('div');
-    modal.className='summit-login-modal';
-    modal.innerHTML='<div class="summit-login-card" role="dialog" aria-modal="true" aria-label="Log in to edit summit progress"><button class="summit-login-close" type="button" aria-label="Close">×</button><p class="eyebrow">Private progress editing</p><h2>Log in</h2><p>Use the same account as Meron and Athenaeum.</p><form novalidate><label>Username<input name="username" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><span class="summit-login-error" role="alert" hidden></span><button type="submit">Sign in</button></form></div>';
-    document.body.appendChild(modal);
-    function close(){modal.remove();}
-    modal.addEventListener('mousedown',function(event){if(event.target===modal)close();});modal.querySelector('.summit-login-close').addEventListener('click',close);
-    modal.querySelector('form').addEventListener('submit',function(event){event.preventDefault();var form=event.currentTarget,submit=form.querySelector('button[type="submit"]'),error=form.querySelector('.summit-login-error');error.hidden=true;submit.disabled=true;submit.textContent='Signing in…';fetch('/__authlogin',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({username:form.username.value,password:form.password.value,keepMeLoggedIn:true,requestMethod:'GET',targetURL:location.href})}).then(function(response){return response.json().then(function(data){return {ok:response.ok,data:data};});}).then(function(result){if(!result.ok||!result.data||result.data.status!=='OK')throw new Error((result.data&&result.data.message)||'Invalid username or password');editorAuthed=true;renderAuthControl();close();renderTracker();}).catch(function(errorValue){error.textContent=errorValue.message||'Login failed';error.hidden=false;}).finally(function(){submit.disabled=false;submit.textContent='Sign in';});});
-    setTimeout(function(){modal.querySelector('input').focus();},30);
-  }
+  function renderAuthControl(){if(!authControl)return;authControl.textContent=editorAuthed?'Sign out':'Owner sign in';authControl.classList.toggle('is-authed',editorAuthed);}
+  function goToLogin(){location.href='https://auth.gordongouger.com/?rd='+encodeURIComponent(location.href);}
   function refreshAuth(){return fetch('/__authstate',{credentials:'include',headers:{Accept:'application/json'}}).then(function(response){if(!response.ok)throw new Error('No session');return response.json();}).then(function(state){editorAuthed=!!(state&&state.data&&state.data.authentication_level>=1);renderAuthControl();}).catch(function(){editorAuthed=false;renderAuthControl();});}
   function renderTracker(){if(!currentPeaks||!currentSummits||!currentBy)return;if(widgetLab){labPeaks=currentPeaks;labSummits=currentSummits;renderRibbonLab(currentPeaks,currentSummits);}else poster.innerHTML=posterMarkup(currentPeaks,currentSummits);renderStats(currentPeaks,currentSummits,currentBy);renderList(currentBy,currentSummits);renderLeafletMap(currentPeaks,currentSummits);if(!widgetLab)Array.prototype.slice.call(document.querySelectorAll('.poster-peak')).forEach(function(peak){peak.addEventListener('click',function(){activatePeak(peak.dataset.slug,true,true);});peak.addEventListener('keydown',function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();activatePeak(peak.dataset.slug,true,true);}});});}
   function saveSummit(slug,done){fetch(summitApi+'/'+encodeURIComponent(slug),{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({done:done})}).then(function(response){return response.json().then(function(data){return {ok:response.ok,data:data};});}).then(function(result){if(!result.ok)throw new Error((result.data&&result.data.detail)||'Could not save summit progress');currentSummits=result.data.summits||{};renderTracker();activatePeak(slug,false,true);}).catch(function(errorValue){window.alert(errorValue.message||'Could not save summit progress.');refreshAuth();});}
@@ -448,7 +439,7 @@
     setTimeout(function(){if(leafletMap)leafletMap.invalidateSize();},80);
   }
 
-  if(authControl)authControl.addEventListener('click',function(){if(editorAuthed){fetch('/__authlogout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'}).finally(refreshAuth);}else makeLoginModal();});
+  if(authControl)authControl.addEventListener('click',function(){if(editorAuthed){fetch('/__authlogout',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:'{}'}).finally(refreshAuth);}else goToLogin();});
   refreshAuth();
   Promise.all([
     fetch('peaks.json').then(function(r){if(!r.ok)throw 0;return r.json();}),
